@@ -7,7 +7,7 @@ Much of this file was broken out from views.py, previous history can be found th
 
 import json
 import logging
-
+import re 
 import six
 from django.conf import settings
 from django.contrib.auth import authenticate
@@ -40,6 +40,8 @@ from openedx.core.djangolib.markup import HTML, Text
 from openedx.core.lib.api.view_utils import require_post_params
 from student.helpers import get_next_url_for_login_page
 from student.models import LoginFailures, AllowedAuthUser, UserProfile
+from custom_reg_form.models import ExtraInfo
+
 from student.views import compose_and_send_activation_email
 from third_party_auth import pipeline, provider
 import third_party_auth
@@ -97,15 +99,29 @@ def _get_user_by_email(request):
         raise AuthFailedError(_('There was an error receiving your login information. Please email us.'))
 
     email = request.POST['email']
-
+    regex_email = r'^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w{2,3}$'
+    regex_mobile = r'^\+?1?\d{9,15}$'
     try:
-        return User.objects.get(email=email)
+        if (re.search(regex_email,email)) or (re.search(regex_mobile,email)):
+
+            if "@" in email:
+                return User.objects.get(email=email),None
+            else:
+                user = ExtraInfo.objects.get(mobile_no = email).user
+                return user,None
+        else:
+             return None,"not_proper_format"
+
     except User.DoesNotExist:
         if settings.FEATURES['SQUELCH_PII_IN_LOGS']:
             AUDIT_LOG.warning(u"Login failed - Unknown user email")
         else:
             AUDIT_LOG.warning(u"Login failed - Unknown user email: {0}".format(email))
+        return None,"email"
 
+    except ExtraInfo.DoesNotExist:
+        AUDIT_LOG.warning(u"Login failed - Unknown user mobile: {0}".format(email))
+        return None,"mobile"
 
 def _check_excessive_login_attempts(user):
     """
@@ -211,7 +227,7 @@ def _authenticate_first_party(request, unauthenticated_user, third_party_auth_re
         raise AuthFailedError(_('Too many failed login attempts. Try again later.'))
 
 
-def _handle_failed_authentication(user, authenticated_user):
+def _handle_failed_authentication(user, authenticated_user,user_error):
     """
     Handles updating the failed login count, inactive user notifications, and logging failed authentications.
     """
@@ -229,8 +245,20 @@ def _handle_failed_authentication(user, authenticated_user):
             AUDIT_LOG.warning(u"Login failed - password for user.id: {0} is invalid".format(loggable_id))
         else:
             AUDIT_LOG.warning(u"Login failed - password for {0} is invalid".format(user.email))
+        raise AuthFailedError(_('Password is incorrect.'))
 
-    raise AuthFailedError(_('Email or password is incorrect.'))
+    elif user_error == "mobile":
+        raise AuthFailedError(_('Mobile Number or password is incorrect.'))
+
+    elif user_error == "email":
+        raise AuthFailedError(_('Email or password is incorrect.'))
+
+    elif user_error == "not_proper_format":
+        raise AuthFailedError(_('Please enter correct format of mobile no/email '))
+
+    else:
+        raise AuthFailedError(_('Password incorrect'))
+
 
 
 def _handle_successful_authentication_and_login(user, request):
@@ -409,12 +437,11 @@ def login_user(request):
                 response_content['error_code'] = 'third-party-auth-with-no-linked-account'
                 return JsonResponse(response_content, status=403)
         else:
-            user = _get_user_by_email(request)
+            user,user_error = _get_user_by_email(request)
 
         _check_excessive_login_attempts(user)
 
         possibly_authenticated_user = user
-
         if not is_user_third_party_authenticated:
             possibly_authenticated_user = _authenticate_first_party(request, user, third_party_auth_requested)
             if possibly_authenticated_user and password_policy_compliance.should_enforce_compliance_on_login():
@@ -422,8 +449,8 @@ def login_user(request):
                 _enforce_password_policy_compliance(request, possibly_authenticated_user)
 
         if possibly_authenticated_user is None or not possibly_authenticated_user.is_active:
-            _handle_failed_authentication(user, possibly_authenticated_user)
-
+            _handle_failed_authentication(user, possibly_authenticated_user,user_error)
+            
         _handle_successful_authentication_and_login(possibly_authenticated_user, request)
 
         redirect_url = None  # The AJAX method calling should know the default destination upon success
