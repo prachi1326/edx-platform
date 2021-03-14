@@ -324,6 +324,12 @@ from openedx.core.djangolib.js_utils import (
       % endif
 
       %if len(courses) > 0 or optimization_enabled:
+      <div class="wrap-error">
+            <div id="course_delete_error" name="course_creation_error" class="message message-status message-status error" role="alert">
+            <p>${_("We are facing issue while deleting this course")}</p>
+            </div>
+          </div>
+
       <div class="courses courses-tab react-course-listing active">
         ${static.renderReact(
           component="CourseOrLibraryListing",
@@ -586,3 +592,29 @@ from openedx.core.djangolib.js_utils import (
   %endif
 </div>
 </%block>
+
+ <%block name="jsextra">
+  <script type="text/javascript">
+      $(".delete_course").on("click",function(e){
+         e.preventDefault();
+
+        var answer = confirm("Confirm delete");
+        if(answer){
+          $.ajax({
+                "type": "POST",
+                "url": this.href,
+                success:function(message){
+                    window.location.reload();
+                },
+                error:function(error){
+                    console.log(error)
+                    $("#course_delete_error").css("display","block")
+                }
+            });    
+        }
+
+      })
+
+  </script>
+
+ </%block>

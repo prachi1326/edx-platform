@@ -7,7 +7,8 @@ import datetime
 import logging
 import uuid
 from collections import namedtuple
-
+import requests
+import json
 import six
 from django.conf import settings
 from django.contrib import messages
@@ -35,7 +36,7 @@ from opaque_keys import InvalidKeyError
 from opaque_keys.edx.keys import CourseKey
 from pytz import UTC
 from six import text_type
-
+from xmodule.modulestore import ModuleStoreEnum
 import track.views
 from bulk_email.models import Optout
 from course_modes.models import CourseMode
@@ -73,6 +74,7 @@ from student.text_me_the_app import TextMeTheAppFragmentView
 from util.db import outer_atomic
 from util.json_request import JsonResponse
 from xmodule.modulestore.django import modulestore
+from cms.djangoapps.contentstore.utils import delete_course
 
 log = logging.getLogger("edx.student")
 
@@ -862,3 +864,28 @@ def text_me_the_app(request):
     }
 
     return render_to_response('text-me-the-app.html', context)
+
+
+def delete_course_studio(request,course_id):
+    payload = {"term": {"course": course_id}}
+    headers = {'content-type': 'application/json'}
+    search_delete_1 = "http://localhost:9200/courseware_index/course_info/_query"
+    search_delete_2 = "http://localhost:9200/courseware_index/courseware_content/_query"
+    try:
+        course_key = CourseKey.from_string(course_id)
+        delete_course(
+            course_key, ModuleStoreEnum.UserID.mgmt_command)
+        # Deleting from Elastic search
+        # requests.delete(search_delete_1, data=json.dumps(
+        #     payload), headers=headers)
+        # requests.delete(search_delete_2, data=json.dumps(
+        #     payload), headers=headers)
+        
+        return JsonResponse({},status=200)
+    except Exception as error:
+        error_message = "Sorry, Error occured while deleting course. Please try again."
+        log.error(
+            "Error while deleting course. The error message is '%s'" % str(error))
+        return JsonResponse({
+            'error_message': error_message
+        },status=400)

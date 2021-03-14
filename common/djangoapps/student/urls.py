@@ -18,6 +18,7 @@ urlpatterns = [
     url(r'^accounts/manage_user_standing', views.manage_user_standing, name='manage_user_standing'),
 
     url(r'^change_email_settings$', views.change_email_settings, name='change_email_settings'),
+    url(r'^delete-course/(?P<course_id>[^/]*)$', views.delete_course_studio, name="delete_course"),
 
     url(r'^course_run/{}/refund_status$'.format(settings.COURSE_ID_PATTERN),
         views.course_run_refund_status,

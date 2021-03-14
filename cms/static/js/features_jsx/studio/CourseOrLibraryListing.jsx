@@ -59,6 +59,15 @@ export function CourseOrLibraryListing(props) {
                     id={`view-live-${idBase}-${i}`}
                   >{gettext('View Live')}</a>
                 </li>
+                 <li className="action action-view">
+                  <a
+                    href={`/delete-course/${item.course_key}`}
+                    rel="external"
+                    className="button view-button delete_course"
+                    aria-labelledby={`view-${idBase}-${i} title-${idBase}-${i}`}
+                    id={`viewdelete-${idBase}-${i}`}
+                  ><span className = "fa fa-trash-o"></span></a>
+                </li>
               </ul>
               }
             </li>

@@ -65,7 +65,6 @@ urlpatterns = [
     url(r'^event$', contentstore.views.event, name='event'),
     url(r'^heartbeat', include('openedx.core.djangoapps.heartbeat.urls')),
     url(r'^i18n/', include('django.conf.urls.i18n')),
-
     # User API endpoints
     url(r'^api/user/', include('openedx.core.djangoapps.user_api.urls')),
 

@@ -897,6 +897,7 @@ class ModuleStoreRead(six.with_metaclass(ABCMeta, ModuleStoreAssetBase)):
         If criteria is a dict {($nin|$in): []}, then do (none|any) of the list elements meet the criteria
         Otherwise, is the target == criteria
         """
+        re._pattern_type = re.Pattern
         if isinstance(target, list):
             return any(self._value_matches(ele, criteria) for ele in target)
         elif isinstance(criteria, re._pattern_type):  # pylint: disable=protected-access
